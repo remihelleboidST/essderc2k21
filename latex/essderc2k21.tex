@@ -12,7 +12,9 @@
 \usepackage[ruled,vlined]{algorithm2e}
 \usepackage{empheq}
 
-\usepackage[left=2cm,right=2cm,top=2cm,bottom=2cm]{geometry}
+
+\setlength{\parindent}{0pt}
+\usepackage[left=1cm,right=2cm,top=2cm,bottom=2cm]{geometry}
 
 % Title
 \title{3D Simulation of PDE and Jitter in SPAD Devices.}
@@ -59,7 +61,6 @@ Single-photon avalanche diodes (SPADs) are key opto-electronics devices.
 \section{Device structure and TCAD simulation}
 \begin{figure}[hbtp]
 \caption{SPAD simulation workflow}
-\centering
 \includegraphics[scale=0.21]{../pictures/TCADWorkflow.png}
 \end{figure}
 
@@ -105,13 +106,111 @@ Adding the couple of boundary value conditions
 & P_h(x=W) = 0 
 \end{empheq}
 we have a full 1D coupled and non-linear boundary value problem.
-Since we have to extract this value at a large number of points, we use a self-made solver, embedded in a C++ program. This solver uses finite difference method coupled with a Newton's method to care of the non-linearity of the problem. The algorithm is different from those implemented in MatLab routine $\textrm{(bvp4c)}$ or SciPy function $\textrm{(solve\_bvp)}$  but the comparison with these tools show no difference.
+Since we have to extract this value at a large number of points, we use a self-made solver, embedded in a C++ program. This solver uses finite difference method coupled with a Newton's method to care of the non-linearity of the problem \cite{ascher_numerical_1987}. The algorithm is different from those implemented in MatLab routine $\textrm{(bvp4c)}$ or SciPy function $\textrm{(solve\_bvp)}$ \cite{kierzenka_bvp_2001} but the comparison with these tools show no difference. \\
+We set the following notations : 
+ \[ Y(x) = \begin{pmatrix}
+P_e(x) \\
+P_h(x)
+\end{pmatrix}
+ \]
+
+ \[ f(Y, x) = \begin{pmatrix}
+(1-Y_1(x))\alpha_e(Y_1(x) + Y_2(x) - Y_1(x)  Y_2(x)) \\
+-(1-Y_2(x))\alpha_h(Y_1(x) + Y_2(x) - Y_1(x)  Y_2(x)) 
+\end{pmatrix}
+\]
+
+\[ g(s_1, s_2) = \begin{pmatrix}
+s_1 \\
+s_2
+\end{pmatrix} \]
+
+The problem hence reads : 
+\begin{empheq}[left=\empheqlbrace]{align}\label{BVP_Prob}
+	&Y'(x) = f(Y, x) \\
+	&g(Y(0), Y(w)) = 0
+\end{empheq}
 
 
-\begin{figure}[h]
-\caption{Field line of electric field inside the device}
+\subsection{Newton scheme}
+\subsubsection{Finite differences approximation}
+Let $\mathcal{M}$ be the mesh on which we work. It is given by the streamlines construction. So we have : 
+\[\mathcal{M}: 0 = x_1 < x_2 < x_3 < \cdots < x_N < x_{N+1} = w \]
+The approximated solution on mesh $\mathcal{M}$ is $Y_{\mathcal{M}} = (y_1, y_2, \cdots, y_N, y_{N+1})$, where $y_i$ is the approximation of $Y(x_i)$.\\
+For numerical approximation we again consider the mesh $\mathcal{M}$ and denote the vector of approximate solution values at mesh points by $Y_{\mathcal{M}}$. The trapezoidal scheme of finite difference methods is given by : 
+\begin{align}\label{TrapezScheme}
+&\frac{y_{i+1}-y_{i}}{h_{i}}=\frac{1}{2}\left(f\left(x_{i+1}, y_{i+1}\right)+f\left(x_{i}, y_{i}\right)\right) \quad 1 \leq i \leq N \\
+&\quad g\left(y_{1}, y_{N+1}\right)=0
+\end{align}
+Thus we obtain a system of $2(N +1)$ algebraic equations for the $2(N +1)$ unknowns $Y_{\mathcal{M}}$. Unlike before, though, these equations are non-linear. The number $N$ depends on the precision we take when we construct the streamlines. We commonly take a range of $\left[1nm, 10nm\right]$, we then have $N \sim 5000$. \\
+Fortunately, the Jacobian matrix of this system is rather sparse, as we shall see below.
+
+\subsubsection{Newton method}
+We consider a system of equation written in the compact form : \[ \textbf{F(s) = 0} \]
+We define a function \textbf{G} : 
+\[  \textbf{G}(\textbf{s}) = \textbf{s} - \left[\textbf{F}'(\textbf{s}) \right]^{-1} \textbf{F}(\textbf{s})\]
+with $\textbf{F}'(\textbf{s})^{-1} $ the inverse of the Jacobian matrix of F : 
+\[\textbf{F}'(\textbf{s}) = \frac{\partial\textbf{F}(\textbf{s}) }{\partial \textbf{s}}  \]
+
+Then the newton method iterative method is given by the iteration : 
+\[\textbf{s}^{k+1} =  \textbf{G}(\textbf{s}^k) \]
+
+So the algorithm will first solve the linear system : 
+\begin{equation}
+\mathbf{F}^{\prime}\left(\mathbf{s}^{k}\right) \boldsymbol{\xi}=-\mathbf{F}\left(\mathbf{s}^{k}\right)
+\end{equation} 
+And then simply do : 
+\begin{equation}
+\textbf{s}^{k+1} = \textbf{s}^{k} + \boldsymbol{\xi}
+\end{equation} 
+
+\subsubsection{Construction of the linear system}
+
+Let $\textbf{N}_{\mathcal{M}}$ be the following discrete differential operator : 
+\[ \textbf{N}_{\mathcal{M}} \textbf{y}_i = \frac{y_{i+1}-y_{i}}{h_{i}}-\frac{1}{2}\left(f\left(x_{i+1}, y_{i+1}\right)+f\left(x_{i}, y_{i}\right)\right) \]
+
+Then \[ \textbf{F}(\textbf{s}) = \begin{pmatrix}
+N_{\mathcal{M}}\textbf{y}_1 \\
+N_{\mathcal{M}}\textbf{y}_1 \\
+\vdots \\
+N_{\mathcal{M}}\textbf{y}_N \\
+g(y_1, y_{N+1})
+\end{pmatrix}
+ \] 
+We set
+\[  \boldsymbol{\xi} = \begin{pmatrix}
+\textbf{w}_1 \\
+\textbf{w}_2 \\
+\vdots \\
+\textbf{w}_N \\
+\textbf{w}_{N+1}
+\end{pmatrix}
+\]
+So that the Newton method iteration becomes : 
+\begin{equation}
+\frac{\mathbf{w}_{i+1}-\mathbf{w}_{i}}{h_{i}}-\frac{1}{2}\left[A\left(x_{i+1}\right) \mathbf{w}_{i+1}+A\left(x_{i}\right) \mathbf{w}_{i}\right]=-\mathbf{N}_{\mathcal{M}} \mathbf{y}_{i}^{k	} \quad 1 \leq i \leq N
+\end{equation}
+\begin{equation}
+B_{a} w_{1}+B_{b} w_{N+1}=-g\left(y_{1}^{m}, y_{N+1}^{m}\right)
+\end{equation}
+Where $A$ is the following matrix : 
+$$
+A\left(x_{j}\right):=\frac{\partial f}{\partial y}\left(x_{j},{\mathbf{y}}_{j}^{k}\right)
+$$
+And with $$
+B_{a}=\frac{\partial g(\mathbf{y_1^k}, \mathbf{y_{N+1}^k})}{\partial \mathbf{u}}, \quad B_{b}=\frac{\partial \mathbf{g}(\mathbf{y_1^k}, \mathbf{y_{N+1}^k})}{\partial \mathbf{v}}
+$$
+which here turns into : 
+$$
+B_{a}=1, \quad B_{b}=1	
+$$
+
+\subsubsection{Final algorithm and comparison with SciPy function}
+The corresponding algorithm is details at algorithm \ref{algo_newton}. The algorithm results were checked with the SciPy routine as a reference. When the number of points is greater than 500, the relative error is always bellow 1\%.
+\begin{figure}[hbtp]
+\caption{Comparison of the Newton's method agaisnt the SciPy routine with 512 points.}
 \centering
-\includegraphics[scale=0.4]{../pictures/SL1.png}
+\includegraphics[scale=0.18]{../pictures/NewtonVsScipy.png}
 \end{figure}
 
 
@@ -164,6 +263,14 @@ Since we have to extract this value at a large number of points, we use a self-m
 \caption{Newton's Method Solver for BVP}\label{algo_newton}
 \end{algorithm}
 \DecMargin{1em}
+
+
+
+\begin{figure}[h]
+\caption{Field line of electric field inside the device}
+\centering
+\includegraphics[scale=0.4]{../pictures/SL1.png}
+\end{figure}
 
 \section{Jitter modeling}
 
