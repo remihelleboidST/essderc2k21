@@ -1,4 +1,4 @@
-DOCNAME="essderc2k21"
+DOCNAME=essderc2k21
 
 all: report
 
