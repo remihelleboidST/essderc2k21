@@ -9,7 +9,7 @@ report:
 	bibtex $(DOCNAME).aux
 	pdflatex $(DOCNAME).tex
 	pdflatex $(DOCNAME).tex
-
+	cp -f $(DOCNAME).pdf ${HOME}
 view: report
 	okular $(DOCNAME).pdf
 

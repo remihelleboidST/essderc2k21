@@ -1,6 +1,6 @@
 %Latex document for ESSDERC 2021 Paper 
 
-\documentclass[11pt,a4paper,twocolumn]{article}
+\documentclass[10pt,a4paper,twocolumn]{article}
 \usepackage[utf8]{inputenc}
 \usepackage{authblk}
 \usepackage{amsmath}
@@ -12,9 +12,8 @@
 \usepackage[ruled,vlined]{algorithm2e}
 \usepackage{empheq}
 
-
 \setlength{\parindent}{0pt}
-\usepackage[left=1cm,right=2cm,top=2cm,bottom=2cm]{geometry}
+\usepackage[left=1cm,right=1cm,top=1cm,bottom=2cm]{geometry}
 
 % Title
 \title{3D Simulation of PDE and Jitter in SPAD Devices.}
@@ -23,6 +22,9 @@
 \author[1]{Rémi Helleboid}
 \author[1]{Denis Rideau}
 \author[1]{Jeremy Grebot}
+\author[1]{Isobel Nicholson}
+\author[1]{Antonin Zimmerman}
+\author[1]{Sara Pellegrini}
 \author[2]{Norbert Moussy}
 \author[2]{Olivier Saxod}
 \affil[1]{ST Microelectronics, Crolles, France}
@@ -55,7 +57,7 @@ In this paper we present a full 3D simulation methodology to extract Photon Dete
 
 % Introduction
 \section{Introduction}
-Single-photon avalanche diodes (SPADs) are key opto-electronics devices.
+Single Photon Avalanche Diodes (SPAD) are key optoelectronic detectors for medical imaging, camera ranging and automotive laser imaging detection and ranging (LiDAR) applications. Currently, the device leading the market is a micrometric silicon (Si) PN junction associated to a proximity CMOS electronics biasing the system above the breakdown voltage. Si-SPADs present low noise and relatively high photon detection probability (PDP), but their sensitivity is limited to photon wavelengths lower than 1100 nm, while class 1 eye-safety devices would require wavelengths larger than 1400 nm.
 
 
 \section{Device structure and TCAD simulation}
@@ -206,13 +208,12 @@ B_{a}=1, \quad B_{b}=1
 $$
 
 \subsubsection{Final algorithm and comparison with SciPy function}
-The corresponding algorithm is details at algorithm \ref{algo_newton}. The algorithm results were checked with the SciPy routine as a reference. When the number of points is greater than 500, the relative error is always bellow 1\%.
+The corresponding algorithm is details at algorithm \ref{alg:algo_newton}. The algorithm results were checked with the SciPy routine as a reference. When the number of points is greater than 500, the relative error is always bellow 1\%.
 \begin{figure}[hbtp]
 \caption{Comparison of the Newton's method agaisnt the SciPy routine with 512 points.}
 \centering
-\includegraphics[scale=0.18]{../pictures/NewtonVsScipy.png}
+\includegraphics[scale=0.6]{../pictures/NewtonScipyMetod_epoch_512.png}
 \end{figure}
-
 
 \IncMargin{1em}
 \begin{algorithm}[h]
@@ -260,21 +261,65 @@ The corresponding algorithm is details at algorithm \ref{algo_newton}. The algor
 	}
 	
 	
-\caption{Newton's Method Solver for BVP}\label{algo_newton}
+\caption{Newton's Method Solver for BVP}\label{alg:algo_newton}
 \end{algorithm}
 \DecMargin{1em}
 
 
+\subsection{Application to field lines}
+The McIntyre model is a fully 1D model where the electron and holes path are assumed to be a straight line, often took from the bottom to the top of the device. In this work we wish to have accurate values of breakdown probability in all the device volume. To this purpose we use electric field streamline to model the carriers transport inside the device. While this modelization might be less accurate than a drift-diffusion model, it would not be consistent with the McIntyre model, where electrons and holes are assumed to follow the same path.
+The field lines are computed straightforwardly using simple Euler scheme with adaptive step to ensure a good distribution of points along the line.
+\begin{equation}
+	\frac{dX(s)}{ds} = \vec{F}_{electric}
+\end{equation}
+Then the streamline is \[ \{X(s) \text{ for } s \in [s_0, s_f]   \} \]
+Our Euler method then reads : 
+\begin{align}
+	&\frac{X(s+ds)-X(s)}{ds} = \vec{F}_{electric}(X(s)) \\
+	\implies & X(s+ds) = X(s) + \underbrace{ds\vec{F}_{electric}(X(s))}_{dX}
+\end{align}
+So with the discretization, calling $X^k$ the approximation of $X(k*ds)$ we have : 
+\begin{align}
+&\frac{X^{k+1}-X^k}{ds} = \vec{F}_{electric}(X^k) \\
+\implies & X^{k+1} = X^k + \underbrace{ds\vec{F}_{electric}(X^k)}_{dX^k}
+\end{align}
+This operation is computed both forward (hole motion) and backward (electron motion). We then interpolate the electric field on the line. We set one extremity of the line as it's beginning and the other end as it's end. We can now obtain a function E(x) where x is the distance from the beginning of the line and E(x) is the norm of the electric field at this point. The streamline and this function are represented in figures \ref{fig:electricfieldplot} and \ref{fig:streamline1}.
 
 \begin{figure}[h]
 \caption{Field line of electric field inside the device}
 \centering
 \includegraphics[scale=0.4]{../pictures/SL1.png}
+\label{fig:streamline1}
 \end{figure}
+
+\begin{figure}[hbtp]
+\caption{Plot of the electric field norm along the field line}
+\centering
+\includegraphics[scale=0.45]{../pictures/ElectricField.png}
+\label{fig:electricfieldplot}
+\end{figure}
+
+We can now compute the impact ionization coefficients, requirend to compute the McIntyre's model, in this work we choose the local coefficient from Van Overstraeten and De Man \cite{van_overstraeten_measurement_1970}.
+
+We can compute the breakdown probability over multiple streamlines starting from multiple points inside the device and plot them to have an idea of the breakdown probability inside the device, see figure .
+
+\begin{figure}[hbtp]
+\caption{Breakdown Probability computed over multiple streamlines}
+\centering
+\includegraphics[scale=0.50]{../pictures/MultipleStreamlinesBrP.png}
+\end{figure}
+
 
 \section{Jitter modeling}
 
+
 \section{Results and comparisons with experiments}
+\begin{figure}[h]
+\caption{Comparison of Breakdown Voltage obtained by McIntyre model versus experiments for multiple SPAD designs}
+\centering
+\includegraphics[scale=0.28]{../pictures/BvMcIntyreExp.png}
+\end{figure}
+
 
 \section{Discussion}
 

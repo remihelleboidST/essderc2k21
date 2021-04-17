@@ -1,0 +1,517 @@
+%Latex document for writting advection diffusion equation and numerical methods
+
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{authblk}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{makeidx}
+\usepackage{graphicx}
+\usepackage{fourier}
+\usepackage[ruled,vlined]{algorithm2e}
+\usepackage{empheq}
+
+\setlength{\parindent}{0pt}
+\usepackage[left=1cm,right=1cm,top=3cm,bottom=3cm]{geometry}
+
+% Title
+\title{Convection diffusion equation and numerical solvers.}
+
+% AUthors and affiliation
+\author[1]{Michael B. Jordan}
+\author[2]{TCAD SPI TOS TR\&D FEM IMAGING Crolles Grenoble Edinburgh}
+\affil[1]{Chicago Bulls}
+\affil[2]{ST Microelectronics}
+
+\date{}                     %% To hide the date
+\setcounter{Maxaffil}{0}
+\renewcommand\Affilfont{\itshape\small}
+% Keywords command
+\providecommand{\keywords}[1]
+{
+  \small	
+  \textbf{\textit{Keywords---}} #1
+}
+
+
+\begin{document}
+% Title
+\maketitle
+
+\tableofcontents
+
+\section{Introduction to advection-diffusion equation}
+Let \[x \in \Omega = [-L, L] \] \[t \in [t_0, t_{max}]\]
+The general 1d advection diffusion equation reads : 
+\begin{equation}\label{eq:GeneralAD}
+\frac{\partial f}{\partial t}(x,t) = 
+	- \frac{\partial( u \cdot f )}{\partial x}(x,t)
+	+ \frac{\partial}{\partial x}\left(D \cdot \frac{\partial f }{\partial x}\right)(x,t)
+\end{equation}
+Where $f(x, t)$ is the quantity of interest, the concentration of a pollutant in a river at position $x$ and time $t$ for example.
+Sticking on this example, $u(x,t)$ would be the velocity of the river at point $x$ and time $t$ and $D(x,t)$ would be the diffusion coefficient at point $x$ and time $t$. \\
+This equation can also be used to model the drift-diffusion behavior of carriers submited to an electric field inside a semi-conductor : f is the density of probability of presence of the carrier in space and time, the velocity comes from the electric field that attract the carrier and the diffusion coefficient comes from the many scattering that the electron suffers. \\ \\
+
+The equation always comes with an initial condition : 
+\begin{equation}
+f(x, t=0) = f_{initial}(x) 
+\end{equation}
+
+And with a pair of boundary conditions : Neuman, Dirichlet, etc.
+For the purpose of modeling carriers in semi-conductor an absorbing boundary condition can often be chosen at one edge of the interval, it reads : 
+\begin{equation}
+\frac{\partial f}{\partial t}(L,t) = 
+	\frac{\partial}{\partial x}\left(D \cdot \frac{\partial( f )}{\partial x}\right)(L,t)
+\end{equation}
+
+
+\section{Rewriting of the equation}
+\subsection{Constant velocity and diffusion}
+First, let us consider the case where $u$ and $D$ functions are constants over space and time with : 
+\begin{empheq}[left=\empheqlbrace]{align}
+&\forall x \in \Omega, \, \forall t \in [t_0, t_{max}], \, u(x, t) \equiv c  \\
+&\forall x \in \Omega, \, \forall t \in [t_0, t_{max}] ,\,  D(x, t) \equiv d
+\end{empheq}
+In this case, the coefficient c and d can be pull out of the partial derivative in equation \ref{eq:GeneralAD} : 
+\begin{equation}\label{eq:ConstantAD}
+\frac{\partial f}{\partial t}(x,t) = 
+	- c \frac{\partial f }{\partial x}(x,t) 
+	+ d \frac{\partial^2 f}{\partial x^2}(x,t)
+\end{equation}
+Under this form and for a Dirac initial condition,  the equation admits an analytic solution : 
+\[f(x,t) = \frac{1}{\sqrt{4 \pi  D  t}} e^{-\frac{(x - ct)^2}{4 d t}} \]
+
+
+\subsection{Variable velocity and diffusion}
+When $u$ and $D$ functions are not constant in space and time, one has to use the Leibniz formula for derivative of a product to rewrite the equation. \\
+This formula states that : \[(f\cdot g)' = f' \cdot g + f \cdot g'\]
+Applying it to equation \ref{eq:GeneralAD} gives : 
+\begin{align}\label{eq:VariableAD}
+\frac{\partial f}{\partial t}(x,t) &= 
+	- \frac{\partial( u \cdot f)}{\partial x}(x,t) 
+	+ \frac{\partial}{\partial x}\left(D \cdot \frac{\partial f}{\partial x}\right)(x,t) \\
+	&= - u(x,t) \cdot \frac{\partial f}{\partial x}(x,t) 
+	   - \frac{\partial u}{\partial x}(x,t) \cdot f(x,t)
+	   + D(x,t) \cdot \frac{\partial^2 f}{\partial x^2}(x,t)
+	   + \frac{\partial D}{\partial x}(x,t) \cdot \frac{\partial f}{\partial x}(x,t) \\
+	&=  \underbrace{- u(x,t) \cdot \frac{\partial f}{\partial x}(x,t) 
+	+ D(x,t) \cdot \frac{\partial^2 f}{\partial x^2}(x,t)}_{\text{Classical terms of advection-diffusion}}
+	 \underbrace{- \frac{\partial u}{\partial x}(x,t) \cdot f(x,t)
+	+ \frac{\partial D}{\partial x}(x,t) \cdot \frac{\partial f}{\partial x}(x,t)}_{\text{Correction terms for variable velocity and diffusion}}
+\end{align}
+One can straightforwardly check that the corrective coefficients are null for a constant velocity and a constant diffusion. \\
+There is no analytic solution to this form of the equation. Numerical methods are the only way to have approximation of the solution.
+
+\section{Finite Difference Method}
+First, we discretize the set $\Omega$ as \[\Omega_h = \left\lbrace -L = x_0, x_1, x_2, \cdots, x_{N-1}, x_N = L \right\rbrace \]
+And time interval as : 
+\[[t_0, t_{max}] = \left\lbrace t_0 = t_0, t_1, t_2, \cdots, t_{M-1}, t_M = t_{max} \right\rbrace \]
+The approximation of the solution are noted :
+ \[f(x_i, t_k) \simeq f_i^k \: \: \:   \text{    for } i \in \left\lbrace 0, \cdots, N\right\rbrace  \text{ and } k \in \left\lbrace 0, \cdots, M \right\rbrace  \]
+\subsection{Finite difference formulas}
+Let us write the different finite difference formulas that will be necessary  : 
+\begin{align*}
+&\frac{\partial f}{\partial t} = \frac{f(t + dt) - f(t)}{dt} + \mathcal{O}(dt) \\
+&\frac{\partial f}{\partial x} = \frac{f(x + h) - f(x - h)}{2h} + \mathcal{O}(h^2) \\
+&\frac{\partial^2 f}{\partial x^2} =  \frac{f(x+h) - 2 f(x) + f(x-h)}{h^{2}} + \mathcal{O}(h^2) \\
+\end{align*}
+So, using our notion for the approximation of the solution, we obtain : 
+\begin{align*}
+&\frac{\partial f}{\partial t}(x, t) = \frac{f_i^{k+1} - f_i^{k}}{dt} + \mathcal{O}(dt) \\
+&\frac{\partial f}{\partial x}(x, t) = \frac{f_{i+1}^{k} - f_{i-1}^{k}}{2h} + \mathcal{O}(h^2) \\
+&\frac{\partial^2 f}{\partial x^2}(x, t) =  \frac{f_{i+1}^{k} - 2 f_{i}^{k} + f_{i-1}^{k}}{h^{2}} + \mathcal{O}(h^2) \\
+\end{align*}
+
+\subsection{Constant coefficients}
+\subsubsection{Explicit method}
+We can now simply replace the derivative in the equation \ref{eq:ConstantAD} by the corresponding finite difference formula. One obtains :
+\begin{align}\label{eq:ExplicitCentered}
+&\frac{f_i^{k+1} - f_i^{k}}{dt} = - c \frac{f_{i+1}^{k} - f_{i-1}^{k}}{2h} 
+								 + d \frac{f_{i+1}^{k} - 2 f_{i}^{k} + f_{i-1}^{k}}{h^{2}} \\
+\Rightarrow & f_i^{k+1} = f_i^{k} + dt \cdot (- c \frac{f_{i+1}^{k} - f_{i-1}^{k}}{2h} 
+								 + d \frac{f_{i+1}^{k} - 2 f_{i}^{k} + f_{i-1}^{k}}{h^{2}} ) \\
+\Rightarrow & f_i^{k+1} =  \left( -c \frac{dt}{2h} + d \frac{dt}{h^2} \right) f_{i-1}^{k} 
+							+ \left(1 - 2 d \frac{dt}{h^2} \right) f_{i}^{k} 
+							+ \left( c \frac{dt}{2h} - d \frac{dt}{h^2} \right) f_{i+1}^{k}  \\
+\Rightarrow & f_i^{k+1} =  \left( -\frac{\alpha}{2} + \gamma \right) f_{i-1}^{k} 
+							+ \left(1 - 2 \gamma \right) f_{i}^{k} 
+							+ \left( \frac{\alpha}{2} -  \gamma \right) f_{i+1}^{k} 
+\end{align} 
+With \[\alpha = c \frac{dt}{h} \]
+and \[\gamma = d \frac{dt}{h^2} \]
+
+This scheme can be written as a matrix-vector product : 
+\[F^{k+1} = A F^k\]
+With \[
+A = \begin{pmatrix}
+      1-2\gamma & -\frac{\alpha}{2} + \gamma & 0   & \dots     & 0   \\
+      \frac{\alpha}{2} -  \gamma & 1-2\gamma       & -\frac{\alpha}{2} + \gamma   & \dots     & 0 \\
+      0&         \frac{\alpha}{2} -  \gamma& \ddots         & \ddots    & \vdots    \\
+      \vdots&         \ddots&           \ddots &     1-2\gamma      & -\frac{\alpha}{2} + \gamma  \\
+      0&         \dots&           0&          \frac{\alpha}{2} -  \gamma & 1-2\gamma
+  \end{pmatrix}
+\]
+And : \[
+F^k =  \begin{pmatrix}
+f_0^k \\
+f_1^k \\
+\vdots \\
+f_N^k \\
+\end{pmatrix}
+\]
+So an algorithm would typically be : 
+
+\IncMargin{1em}
+\begin{algorithm}[h]
+	\SetKwData{Left}{left}
+	\SetKwData{This}{this}
+	\SetKwData{Up}{up}
+	\SetKwFunction{Union}{Union}
+	\SetKwFunction{FindCompress}{FindCompress}
+	\SetKwInOut{Input}{input}\SetKwInOut{Output}{output}
+	\Input{The initial condition}
+	\Input{The space step h and time step dt }
+	\Input{The times $t_0$ and $t_{max}$}
+	\Output{The Solution  $F^M$}
+	\BlankLine
+	$\text{time} \leftarrow  t_0$ \;
+	Initialize $F$ as a vector of size N with f{initial} values\;
+	Construct the matrix A defined previously.
+	\BlankLine
+	\While{$time <= t_{max}$}{
+		$F \leftarrow A \cdot F$ \\
+		$time \leftarrow time + dt$
+	}
+	\BlankLine
+	return F
+	
+	
+\caption{Explicit Centered scheme for advection-diffusion equation}\label{alg:explicit_center}
+\end{algorithm}
+\DecMargin{1em}
+
+This scheme is consistent with the advection diffusion equation but it is always unstable.
+
+\subsubsection{Implicit method}
+To construct the implicit method, we simply take the iteration $n+1$ to compute the space finite differences, on the right hand side of \ref{eq:ExplicitCentered} 
+\begin{align}\label{eq:ExplicitCentered}
+&\frac{f_i^{k+1} - f_i^{k}}{dt} = - c \frac{f_{i+1}^{k+1} - f_{i-1}^{k+1}}{2h} 
+								 + d \frac{f_{i+1}^{k+1} - 2 f_{i}^{k+1} + f_{i-1}^{k+1}}{h^{2}} \\
+\Rightarrow & f_i^{k+1} - dt \cdot (- c \frac{f_{i+1}^{k} - f_{i-1}^{k}}{2h} 
+						+ d \frac{f_{i+1}^{k} - 2 f_{i}^{k} + f_{i-1}^{k}}{h^{2}} ) 
+						= f_i^{k}   \\
+\Rightarrow &   \left( -c \frac{dt}{2h} - d \frac{dt}{h^2} \right) f_{i-1}^{k+1} 
+							+ \left(1 + 2 d \frac{dt}{h^2} \right) f_{i}^{k+1} 
+							+ \left( c \frac{dt}{2h} - d \frac{dt}{h^2} \right) f_{i+1}^{k}
+							= f_i^{k}   \\
+\Rightarrow & \left( -\frac{\alpha}{2} - \gamma \right) f_{i-1}^{k+1} 
+							+ \left(1 + 2 \gamma \right) f_{i}^{k+1} 
+							+ \left( \frac{\alpha}{2} - \gamma \right) f_{i+1}^{k}
+							= f_i^{k}   \\
+\end{align}
+Again it is more convenient to write the scheme as a linear system.
+This scheme can be written as linear system to solve : 
+\[ A F^{k+1} = F^k\]
+With \[
+A = \begin{pmatrix}
+      1+2\gamma & -\frac{\alpha}{2} - \gamma & 0   & \dots     & 0   \\
+      \frac{\alpha}{2} -  \gamma & 1+2\gamma       & -\frac{\alpha}{2} - \gamma   & \dots     & 0 \\
+      0&         \frac{\alpha}{2} -  \gamma& \ddots         & \ddots    & \vdots    \\
+      \vdots&         \ddots&           \ddots &     1+2\gamma      & -\frac{\alpha}{2} - \gamma  \\
+      0&         \dots&           0&          \frac{\alpha}{2} -  \gamma & 1+2\gamma
+  \end{pmatrix}
+\]
+And : \[
+F^k =  \begin{pmatrix}
+f_0^k \\
+f_1^k \\
+\vdots \\
+f_N^k \\
+\end{pmatrix}
+\]
+An algorithm would typically be : 
+
+\IncMargin{1em}
+\begin{algorithm}[H]
+	\SetKwData{Left}{left}
+	\SetKwData{This}{this}
+	\SetKwData{Up}{up}
+	\SetKwFunction{Union}{Union}
+	\SetKwFunction{FindCompress}{FindCompress}
+	\SetKwInOut{Input}{input}\SetKwInOut{Output}{output}
+	\Input{The initial condition}
+	\Input{The space step h and time step dt }
+	\Input{The times $t_0$ and $t_{max}$}
+	\Output{The Solution  $F^M$}
+	\BlankLine
+	$\text{time} \leftarrow  t_0$ \;
+	Initialize $F$ as a vector of size N with f{initial} values\;
+	Construct the matrix A defined previously.
+	\BlankLine
+	\While{$time <= t_{max}$}{
+		Solve AX = F \\
+		$F \leftarrow X$ \\
+		$time \leftarrow time + dt$
+	}
+	\BlankLine
+	return F
+	
+	
+\caption{Implicit Centered scheme for advection-diffusion equation}\label{alg:implicit_center}
+\end{algorithm}
+\DecMargin{1em}
+
+This scheme is consistent with the advection diffusion equation and of order $\mathcal{O}(dt+h^2)$ and it is always stable, with no condition on dt and h.
+
+
+\subsubsection{Crank-Nicholson scheme}
+The idea of Crank-Nicholson scheme is to make the average of a implicit and explicit centered scheme. The resulting scheme has the advantage to be accurate with order $\mathcal{O}(dt^2+h^2)$ and to remain unconditionally stable.
+
+
+\begin{align*}\label{eq:CrankNicolson}
+\frac{f_i^{k+1} - f_i^{k}}{dt} =& \frac{1}{2} \left[ - c \frac{f_{i+1}^{k} - f_{i-1}^{k}}{2h} 
+								 + d \frac{f_{i+1}^{k} - 2 f_{i}^{k} + f_{i-1}^{k}}{h^{2}} \right] \\ 									&+ \frac{1}{2} \left[ 
+								 - c \frac{f_{i+1}^{k+1} - f_{i-1}^{k+1}}{2h} 
+								 + d \frac{f_{i+1}^{k+1} - 2 f_{i}^{k+1} 
+								 + f_{i-1}^{k+1}}{h^{2}} \right] \
+\end{align*}
+It is straightforward that the resulting scheme will be a linear system to solve with a matrix vector product as right hand side member: 
+\[ A F^{k+1} = B F^k\]
+With :
+ \[
+A = \begin{pmatrix}
+      1+2\gamma & -\frac{\alpha}{2} - \gamma & 0   & \dots     & 0   \\
+      \frac{\alpha}{2} -  \gamma & 1+2\gamma       & -\frac{\alpha}{2} - \gamma   & \dots     & 0 \\
+      0&         \frac{\alpha}{2} -  \gamma& \ddots         & \ddots    & \vdots    \\
+      \vdots&         \ddots&           \ddots &     1+2\gamma      & -\frac{\alpha}{2} - \gamma  \\
+      0&         \dots&           0&          \frac{\alpha}{2} -  \gamma & 1+2\gamma
+  \end{pmatrix}
+\]
+
+\[
+B = \begin{pmatrix}
+      1-2\gamma & -\frac{\alpha}{2} + \gamma & 0   & \dots     & 0   \\
+      \frac{\alpha}{2} -  \gamma & 1-2\gamma       & -\frac{\alpha}{2} + \gamma   & \dots     & 0 \\
+      0&         \frac{\alpha}{2} -  \gamma& \ddots         & \ddots    & \vdots    \\
+      \vdots&         \ddots&           \ddots &     1-2\gamma      & -\frac{\alpha}{2} + \gamma  \\
+      0&         \dots&           0&          \frac{\alpha}{2} -  \gamma & 1-2\gamma
+  \end{pmatrix}
+\]
+And : \[
+F^k =  \begin{pmatrix}
+f_0^k \\
+f_1^k \\
+\vdots \\
+f_N^k \\
+\end{pmatrix}
+\]
+
+
+The corresponding algorithm would then be :
+
+\IncMargin{1em}
+\begin{algorithm}[H]
+	\SetKwData{Left}{left}
+	\SetKwData{This}{this}
+	\SetKwData{Up}{up}
+	\SetKwFunction{Union}{Union}
+	\SetKwFunction{FindCompress}{FindCompress}
+	\SetKwInOut{Input}{input}\SetKwInOut{Output}{output}
+	\Input{The initial condition}
+	\Input{The space step h and time step dt }
+	\Input{The times $t_0$ and $t_{max}$}
+	\Output{The Solution  $F^M$}
+	\BlankLine
+	$\text{time} \leftarrow  t_0$ \;
+	Initialize $F$ as a vector of size N with f{initial} values\;
+	Construct the matrix A defined previously.
+	\BlankLine
+	\While{$time <= t_{max}$}{
+		$Y \leftarrow B F$ \\
+		Solve $AX = Y $\\
+		$F \leftarrow X$ \\
+		$time \leftarrow time + dt$
+	}
+	\BlankLine
+	return F
+	
+	
+\caption{Crank Nicolson algorithm}\label{alg:cn}
+\end{algorithm}
+\DecMargin{1em}
+
+\subsection{Variable coefficients}
+In the case of non constant velocity and diffusion, we must take into account the "corrective" coefficients of equation \ref{eq:VariableAD} : 
+	\[ \frac{\partial f}{\partial t}(x, t) =  \underbrace{- u(x,t) \cdot \frac{\partial f}{\partial x}(x,t) 
+	+ D(x,t) \cdot \frac{\partial^2 f}{\partial x^2}(x,t)}_{\text{Classical terms of advection-diffusion}}
+	 \underbrace{- \frac{\partial u}{\partial x}(x,t) \cdot f(x,t)
+	+ \frac{\partial D}{\partial x}(x,t) \cdot \frac{\partial f}{\partial x}(x,t)}_{\text{Correction terms for variable velocity and diffusion}}\]
+
+\subsubsection{Explicit scheme}
+
+\begin{align*}\label{eq:ExplicitCenteredNonConstant}
+&\frac{f_i^{k+1} - f_i^{k}}{dt} = - u_i \frac{f_{i+1}^{k} - f_{i-1}^{k}}{2h} 
+				+ D_i \frac{f_{i+1}^{k} - 2 f_{i}^{k} + f_{i-1}^{k}}{h^{2}} 
+				- f_i^k \frac{u_{i+1} - u_{i-1} }{2h}
+				+ \frac{D_{i+1} - D_{i-1} }{2h} \frac{f_{i+1}^{k} - f_{i-1}^{k}}{2h} \\
+\Rightarrow & f_i^{k+1} = f_i^{k} + dt \cdot \left(- u_i \frac{f_{i+1}^{k} - f_{i-1}^{k}}{2h} 
+			 + D_i \frac{f_{i+1}^{k} - 2 f_{i}^{k} + f_{i-1}^{k}}{h^{2}} 
+			 - f_i^k \frac{u_{i+1} - u_{i-1} }{2h}
+			 + \frac{D_{i+1} - D_{i-1} }{2h} \frac{f_{i+1}^{k} - f_{i-1}^{k}}{2h}
+			 \right) \\
+\Rightarrow & f_i^{k+1} =  \left( -u_i \frac{dt}{2h} + D_i \frac{dt}{h^2} -dt\frac{D_{i+1} - D_{i-1} }{4h^2}  \right) f_{i-1}^{k} 
+							+ \left(1 - 2 D_i \frac{dt}{h^2} -dt\frac{u_{i+1} - u_{i-1} }{2h} \right) f_{i}^{k} 
+							+ \left(u_i \frac{dt}{2h} - D_i \frac{dt}{h^2} +dt\frac{D_{i+1} - D_{i-1} }{4h^2} \right) f_{i+1}^{k}  \\
+\Rightarrow & f_i^{k+1} =  \left( -\frac{\alpha_i}{2} + \gamma_i -\frac{1}{4}\frac{dt}{h^2}\left(D_{i+1} - D_{i-1} \right) \right) f_{i-1}^{k} 
+							+ \left(1 - 2 \gamma_i - \frac{1}{2} \frac{dt}{h} \left(u_{i+1} - u_{i-1} \right) \right) f_{i}^{k} 
+							+ \left( \frac{\alpha_i}{2} -  \gamma_i + \frac{1}{4}\frac{dt}{h^2}\left(D_{i+1} - D_{i-1} \right) \right) f_{i+1}^{k} 
+\end{align*} 
+
+
+This scheme can be written as a matrix-vector product : 
+\[F^{k+1} = A F^k\]
+With \[
+A = \begin{pmatrix}
+      1-2\gamma - \beta & -\frac{\alpha}{2} + \gamma -\sigma & 0   & \dots     & 0   \\
+      \frac{\alpha}{2} -  \gamma + \sigma & 1-2\gamma - \beta       & -\frac{\alpha}{2} + \gamma -\sigma & \dots     & 0 \\
+      0&         \frac{\alpha}{2} -  \gamma + \sigma& \ddots         & \ddots    & \vdots    \\
+      \vdots&         \ddots&           \ddots &     1-2\gamma - \beta      & -\frac{\alpha}{2} + \gamma -\sigma \\
+      0&         \dots&           0&          \frac{\alpha}{2} -  \gamma + \sigma & 1-2\gamma - \beta
+  \end{pmatrix}
+\]
+
+With
+\begin{align*}
+\alpha &= c \frac{dt}{h} \\
+\gamma &= d \frac{dt}{h^2}  \\
+\beta  &= \frac{dt}{2h} \left( u_{i+1}-u_{i-1} \right)  \\
+\sigma &= \frac{1}{2h}\frac{D_{i+1} - D_{i-1}}{2h}  \\
+\end{align*}
+
+
+\subsubsection{Implicit scheme}
+
+\begin{align*}\label{eq:ImplicitCenteredNonConstant}
+&\frac{f_i^{k+1} - f_i^{k}}{dt} = - u_i \frac{f_{i+1}^{k+1} - f_{i-1}^{k+1}}{2h} 
+				+ D_i \frac{f_{i+1}^{k+1} - 2 f_{i}^{k+1} + f_{i-1}^{k+1}}{h^{2}} 
+				- f_i^k \frac{u_{i+1} - u_{i-1} }{2h}
+				+ \frac{D_{i+1} - D_{i-1} }{2h} \frac{f_{i+1}^{k+1} - f_{i-1}^{k+1}}{2h} \\
+\Rightarrow & f_i^{k} = f_i^{k+1} - dt \cdot \left(- u_i \frac{f_{i+1}^{k+1} - f_{i-1}^{k+1}}{2h} 
+			 + D_i \frac{f_{i+1}^{k+1} - 2 f_{i}^{k+1} + f_{i-1}^{k+1}}{h^{2}} 
+			 - f_i^{k+1} \frac{u_{i+1} - u_{i-1} }{2h}
+			 + \frac{D_{i+1} - D_{i-1} }{2h} \frac{f_{i+1}^{k+1} - f_{i-1}^{k+1}}{2h}
+			 \right) \\
+\Rightarrow & f_i^{k} =  \left(- u_i \frac{dt}{2h} - D_i \frac{dt}{h^2} +dt\frac{D_{i+1} - D_{i-1} }{2h}  \right) 							f_{i-1}^{k+1} 
+							+ \left(1 + 2 D_i \frac{dt}{h^2} + dt\frac{u_{i+1} + u_{i-1} }{2h} \right) f_{i}^{k+1} 
+							+ \left(u_i \frac{dt}{2h} - D_i \frac{dt}{h^2} -dt\frac{D_{i+1} - D_{i-1} }{2h} 									\right) f_{i+1}^{k}  \\
+\Rightarrow & f_i^{k} =  \left( -\frac{\alpha_i}{2} - \gamma_i +\frac{1}{2}\frac{dt}{h}\left(D_{i+1} - D_{i-1} 									\right) \right) f_{i-1}^{k+1} 
+							+ \left(1 + 2 \gamma_i + \frac{1}{2} \frac{dt}{h} \left(u_{i+1} - u_{i-1} \right) 									\right) f_{i}^{k+1} 
+							+ \left( \frac{\alpha_i}{2} -  \gamma_i - \frac{1}{2}\frac{dt}{h}\left(D_{i+1} - 									D_{i-1} \right) \right) f_{i+1}^{k} 
+\end{align*} 
+
+This scheme can be written as linear system to solve : 
+\[ A F^{k+1} = F^k\]
+With \[
+A = \begin{pmatrix}
+      1+2\gamma + \beta &-\frac{\alpha}{2} - \gamma +\frac{\sigma}{2} & 0   & \dots     & 0   \\
+      \frac{\alpha}{2} -  \gamma - \frac{\sigma}{2} & 1+2\gamma + \beta       & -\frac{\alpha}{2} - \gamma +\frac{\sigma}{2}  & \dots     & 0 \\
+      0&         \frac{\alpha}{2} -  \gamma - \frac{\sigma}{2}& \ddots         & \ddots    & \vdots    \\
+      \vdots&         \ddots&           \ddots &     1+2\gamma + \beta      & -\frac{\alpha}{2} - \gamma +\frac{\sigma}{2} \\
+      0&         \dots&           0&          \frac{\alpha}{2} -  \gamma - \frac{\sigma}{2} & 1+2\gamma + \beta
+  \end{pmatrix}
+\]
+
+With
+\begin{align*}
+\alpha &= c \frac{dt}{h} \\
+\gamma &= d \frac{dt}{h^2}  \\
+\beta  &= \frac{dt}{2h} \left( u_{i+1}-u_{i-1} \right)  \\
+\sigma &= \frac{1}{2h}\frac{D_{i+1} - D_{i-1}}{2h}  \\ \\
+\end{align*}
+
+\subsubsection{Crank-Nicholson scheme}
+We proceed as previously, taking half explicit and half implicit scheme.
+
+
+\begin{align*}\label{eq:CrankNicolson}
+\frac{f_i^{k+1} - f_i^{k}}{dt} =& \frac{1}{2} \left[ - u_i \frac{f_{i+1}^{k+1} - f_{i-1}^{k+1}}{2h} 
+				+ D_i \frac{f_{i+1}^{k+1} - 2 f_{i}^{k+1} + f_{i-1}^{k+1}}{h^{2}} 
+				- f_i^k \frac{u_{i+1} - u_{i-1} }{2h}
+				+ \frac{D_{i+1} - D_{i-1} }{2h} \frac{f_{i+1}^{k+1} - f_{i-1}^{k+1}}{2h} \right] \\ 								+ &\frac{1}{2} \left[ - u_i \frac{f_{i+1}^{k} - f_{i-1}^{k}}{2h} 
+				+ D_i \frac{f_{i+1}^{k} - 2 f_{i}^{k} + f_{i-1}^{k}}{h^{2}} 
+				- f_i^k \frac{u_{i+1} - u_{i-1} }{2h}
+				+ \frac{D_{i+1} - D_{i-1} }{2h} \frac{f_{i+1}^{k} - f_{i-1}^{k}}{2h} \right] \
+\end{align*}
+It is again straightforward that the resulting scheme will be a linear system to solve with a matrix vector product as right hand side member: 
+\[ A F^{k+1} = B F^k\]
+
+With \[
+A = \begin{pmatrix}
+      2+2\gamma + \beta &-\frac{\alpha}{2} - \gamma +\frac{\sigma}{2} & 0   & \dots     & 0   \\
+      \frac{\alpha}{2} -  \gamma - \frac{\sigma}{2} & 2+2\gamma + \beta       & -\frac{\alpha}{2} - \gamma +\frac{\sigma}{2}  & \dots     & 0 \\
+      0&         \frac{\alpha}{2} -  \gamma - \frac{\sigma}{2}& \ddots         & \ddots    & \vdots    \\
+      \vdots&         \ddots&           \ddots &     2+2\gamma + \beta      & -\frac{\alpha}{2} - \gamma +\frac{\sigma}{2} \\
+      0&         \dots&           0&          \frac{\alpha}{2} -  \gamma - \frac{\sigma}{2} & 2+2\gamma + \beta
+  \end{pmatrix}
+\]
+
+\[
+B = \begin{pmatrix}
+      2-2\gamma - \beta & -\frac{\alpha}{2} + \gamma -\frac{\sigma}{2} & 0   & \dots     & 0   \\
+      \frac{\alpha}{2} -  \gamma + \frac{\sigma}{2} & 2-2\gamma - \beta       & -\frac{\alpha}{2} + \gamma -\frac{\sigma}{2}  & \dots     & 0 \\
+      0&         \frac{\alpha}{2} -  \gamma + \frac{\sigma}{2}& \ddots         & \ddots    & \vdots    \\
+      \vdots&         \ddots&           \ddots &     2-2\gamma - \beta      & -\frac{\alpha}{2} + \gamma -\frac{\sigma}{2} \\
+      0&         \dots&           0&          \frac{\alpha}{2} -  \gamma + \frac{\sigma}{2} & 2-2\gamma - \beta
+  \end{pmatrix}
+\]
+
+Still with
+\begin{align*}
+\alpha &= c \frac{dt}{h} \\
+\gamma &= d \frac{dt}{h^2}  \\
+\beta  &= \frac{dt}{2h} \left( u_{i+1}-u_{i-1} \right)  \\
+\sigma &= \frac{1}{2h}\frac{D_{i+1} - D_{i-1}}{2h}  \\ \\
+\end{align*}
+
+
+
+
+\subsection{Boundary condition}
+\begin{huge}
+SEEMS OK BUT TO BE CHECKED !!!
+\end{huge}
+
+To ensure absorbing boundary condition at $x=L$ : \[
+\frac{\partial f}{\partial t}(L,t) = 
+	\frac{\partial}{\partial x}\left(D \cdot \frac{\partial( f )}{\partial x}\right)(L,t)
+\]
+we may modify the linear system by removing "velocity" terms at $L = x_N$.
+We remove $-\beta$ in the $(N, N)$ coefficients of both matrices.
+
+We end up with the following matrices :  
+
+\[
+A = \begin{pmatrix}
+      2+2\gamma + \beta &-\frac{\alpha}{2} - \gamma +\frac{\sigma}{2} & 0   & \dots     & 0   \\
+      \frac{\alpha}{2} -  \gamma - \frac{\sigma}{2} & 2+2\gamma + \beta       & -\frac{\alpha}{2} - \gamma +\frac{\sigma}{2}  & \dots     & 0 \\
+      0&         \frac{\alpha}{2} -  \gamma - \frac{\sigma}{2}& \ddots         & \ddots    & \vdots    \\
+      \vdots&         \ddots&           \ddots &     2+2\gamma + \beta      & -\frac{\alpha}{2} - \gamma +\frac{\sigma}{2} \\
+      0&         \dots&           0&          \frac{\alpha}{2} -  \gamma - \frac{\sigma}{2} & 2+2\gamma 
+  \end{pmatrix}
+\]
+
+\[
+B = \begin{pmatrix}
+      2-2\gamma - \beta & -\frac{\alpha}{2} + \gamma -\frac{\sigma}{2} & 0   & \dots     & 0   \\
+      \frac{\alpha}{2} -  \gamma + \frac{\sigma}{2} & 2-2\gamma - \beta       & -\frac{\alpha}{2} + \gamma -\frac{\sigma}{2}  & \dots     & 0 \\
+      0&         \frac{\alpha}{2} -  \gamma + \frac{\sigma}{2}& \ddots         & \ddots    & \vdots    \\
+      \vdots&         \ddots&           \ddots &     2-2\gamma - \beta      & -\frac{\alpha}{2} + \gamma -\frac{\sigma}{2} \\
+      0&         \dots&           0&          \frac{\alpha}{2} -  \gamma + \frac{\sigma}{2} & 2-2\gamma
+  \end{pmatrix}
+\]
+
+
+
+
+\end{document}
