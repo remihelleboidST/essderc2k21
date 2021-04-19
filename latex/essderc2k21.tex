@@ -4,6 +4,7 @@
 \usepackage[utf8]{inputenc}
 \usepackage{authblk}
 \usepackage{amsmath}
+\usepackage{nccmath} % added this
 \usepackage{amsfonts}
 \usepackage{amssymb}
 \usepackage{makeidx}
@@ -21,12 +22,13 @@
 % AUthors and affiliation
 \author[1]{Rémi Helleboid}
 \author[1]{Denis Rideau}
+\author[2]{Norbert Moussy}
+\author[2]{Olivier Saxod}
 \author[1]{Jeremy Grebot}
 \author[1]{Isobel Nicholson}
 \author[1]{Antonin Zimmerman}
 \author[1]{Sara Pellegrini}
-\author[2]{Norbert Moussy}
-\author[2]{Olivier Saxod}
+
 \affil[1]{ST Microelectronics, Crolles, France}
 \affil[2]{CEA LETI, Grenoble, France}
 
@@ -311,7 +313,87 @@ We can compute the breakdown probability over multiple streamlines starting from
 
 
 \section{Jitter modeling}
+\subsection{Drif-Diffusion model}
+The jitter in SPAD devices is made of multiple phenomena such as depth of photon absorption, carrier transport timing, avalanche build-up,quench circuit statistics etc. \\In the present work, we focus on the modeling of the carrier transport part. To do so, we \underline{put together} the streamlines and the advection-diffusion equation with variable velocity and diffusion.
+Let us consider that a photon absorption at a given point $x_0$ leads to the creation of an electron-hole pair, we want to simulate the timing for the electron to reach the avalanche zone, we assume that this zone is represented by the location of the maximum electric field, denoted $x_{E_{max}}$ . Let $f : (x,t) \mapsto f(x,t)$ the probability distribution of an electron \underline{presence}. We assume that the electron will drift along the electric field streamline. At time $t=0$, f is a Dirac distribution, in order to be able to compute a solution numerically, we start a time $t_0 = \delta t$ where $\delta t$ is as small as possible. We then take the assumption that $D(x) = D(x_0)$ and $u(x) = u_(x_0)$, the analytical solution of the advection-diffusion applies. 
 
+ Hence, f verify the following equation : 
+ \[ \forall x \in \left[ x_s, x_{max} \right]  \text{ and } t \in \left[ t_0, T \right] \]
+\begin{equation}\label{eq:GeneralAD}
+\frac{\partial f}{\partial t}(x,t) = 
+	- \frac{\partial( u \cdot f )}{\partial x}(x,t)
+	+ \frac{\partial}{\partial x}\left(D \cdot \frac{\partial f }{\partial x}\right)(x,t)
+\end{equation}
+With the following initial condition : 
+\begin{equation}
+f(x, t=t_0) = \frac{1}{\sqrt{4 \pi D(x_0) t_0}} exp(-\frac{(x-v(x_0)t_0)^2}{4D(x_0)t_0}
+\end{equation}
+And setting an absorbing boundary condition at $x_s=x_{E_{max}}$:
+\begin{equation}
+\frac{\partial f}{\partial t}(x_s,t) = 
+	\frac{\partial}{\partial x}\left(D \cdot \frac{\partial( f )}{\partial x}\right)(x_s,t)
+\end{equation}
+Let $T_e$ the time for the electron to reach the avalanche region. It is straightforward that the probability that $T$ is less than $t$ is:
+ \[P_r(t<T) =  F_{Pr}(t) = 1 - \int_{x_0}^{x_{max}} f(x, t) dx \]
+From this cumulative distribution function, we can find back the distribution of T:
+\begin{equation}
+f_T (t) = \frac{F_{Pr}(t)}{dt}
+\end{equation}
+\includegraphics[scale=0.5]{../pictures/PythonVelocityMobilityDiffusionElectricField.png} 
+
+\subsection{Numerical solution}
+First, we discretize the streamline $\Omega$ as \[\Omega_h = \left\lbrace x_s = x_0, x_1, x_2, \cdots, x_{N-1}, x_N = x_{max} \right\rbrace \]
+And time interval as : 
+\[[t_0, t_{max}] = \left\lbrace t_0 = t_0, t_1, t_2, \cdots, t_{M-1}, t_M = t_{max} \right\rbrace \]
+The approximation of the solution is noted :
+ \[f(x_i, t_k) \simeq f_i^k \: \: \:   \text{    for } i \in \left\lbrace 0, \cdots, N\right\rbrace  \text{ and } k \in \left\lbrace 0, \cdots, M \right\rbrace  \]
+The equation is solved by the mean of the finite difference method, more precisely we use a modified Crank-Nicholson method. The differentiation of the equation reads : 
+\useshortskip
+\begin{align*}\label{eq:CrankNicolson}
+\frac{f_i^{k+1} - f_i^{k}}{dt} =& \frac{1}{2} \left[ - u_i \frac{f_{i+1}^{k+1} - f_{i-1}^{k+1}}{2h} 
+				+ D_i \frac{f_{i+1}^{k+1} - 2 f_{i}^{k+1} + f_{i-1}^{k+1}}{h^{2}}  \right] \\
+				+& \frac{1}{2} \left[-f_i^k \frac{u_{i+1} - u_{i-1} }{2h}
+				+ \frac{D_{i+1} - D_{i-1} }{2h} \frac{f_{i+1}^{k+1} - f_{i-1}^{k+1}}{2h} \right] \\ 								
+				+ &\frac{1}{2} \left[ - u_i \frac{f_{i+1}^{k} - f_{i-1}^{k}}{2h} 
+				+ D_i \frac{f_{i+1}^{k} - 2 f_{i}^{k} + f_{i-1}^{k}}{h^{2}} \right] \\
+				+ &\frac{1}{2} \left[-f_i^k \frac{u_{i+1} - u_{i-1} }{2h}
+				+ \frac{D_{i+1} - D_{i-1} }{2h} \frac{f_{i+1}^{k} - f_{i-1}^{k}}{2h} \right] \
+\end{align*}
+It is then straightforward that the resulting scheme will be a linear system to solve with a matrix vector product as right hand side member: 
+\[ A F^{k+1} = B F^k\]
+
+The corresponding algorithm would then be :
+
+\IncMargin{1em}
+\begin{algorithm}[h]
+	\SetKwData{Left}{left}
+	\SetKwData{This}{this}
+	\SetKwData{Up}{up}
+	\SetKwFunction{Union}{Union}
+	\SetKwFunction{FindCompress}{FindCompress}
+	\SetKwInOut{Input}{input}\SetKwInOut{Output}{output}
+	\Input{The initial condition}
+	\Input{The space step h and time step dt }
+	\Input{The times $t_0$ and $t_{max}$}
+	\Output{The Solution  $F^M$}
+	\BlankLine
+	$\text{time} \leftarrow  t_0$ \;
+	Initialize $F$ as a vector of size N with f{initial} values\;
+	Construct the matrix A and B defined previously.
+	\BlankLine
+	\While{$time <= t_{max}$}{
+		$Y \leftarrow B F$ \\
+		Solve $AX = Y $\\
+		$F \leftarrow X$ \\
+		$time \leftarrow time + dt$
+	}
+	\BlankLine
+	return F
+	
+	
+\caption{Crank Nicolson algorithm}\label{alg:cn}
+\end{algorithm}
+\DecMargin{1em}
 
 \section{Results and comparisons with experiments}
 \begin{figure}[h]

@@ -11,7 +11,7 @@ report:
 	pdflatex $(DOCNAME).tex
 	cp -f $(DOCNAME).pdf ${HOME}
 view: report
-	okular $(DOCNAME).pdf
+	okular $(DOCNAME).pdf &
 
 clean:
 	rm *.blg *.bbl *.aux *.lo
