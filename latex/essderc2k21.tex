@@ -17,7 +17,7 @@
 \usepackage[left=1cm,right=1cm,top=1cm,bottom=2cm]{geometry}
 
 % Title
-\title{3D Simulation of PDE and Jitter in SPAD Devices.}
+\title{PDE and Jitter modelling of SPAD Devices.}
 
 % AUthors and affiliation
 \author[1]{Rémi Helleboid}
@@ -333,13 +333,20 @@ And setting an absorbing boundary condition at $x_s=x_{E_{max}}$:
 \frac{\partial f}{\partial t}(x_s,t) = 
 	\frac{\partial}{\partial x}\left(D \cdot \frac{\partial( f )}{\partial x}\right)(x_s,t)
 \end{equation}
+The velocity is computed throw a high field saturation model and the diffusion throw the Einstein relation $D = \frac{\mu k_B T}{q}$, these quantities are represented in figure \ref{fig:VelocityDiffusion}. 
 Let $T_e$ the time for the electron to reach the avalanche region. It is straightforward that the probability that $T$ is less than $t$ is:
  \[P_r(t<T) =  F_{Pr}(t) = 1 - \int_{x_0}^{x_{max}} f(x, t) dx \]
 From this cumulative distribution function, we can find back the distribution of T:
 \begin{equation}
 f_T (t) = \frac{F_{Pr}(t)}{dt}
 \end{equation}
-\includegraphics[scale=0.5]{../pictures/PythonVelocityMobilityDiffusionElectricField.png} 
+\begin{figure}[hbtp]
+\caption{Normalized data along a  streamline}
+\centering
+\label{fig:VelocityDiffusion}
+\includegraphics[scale=0.5]{../pictures/PythonVelocityDiffusionElectricField.png}
+\end{figure}
+
 
 \subsection{Numerical solution}
 First, we discretize the streamline $\Omega$ as \[\Omega_h = \left\lbrace x_s = x_0, x_1, x_2, \cdots, x_{N-1}, x_N = x_{max} \right\rbrace \]
