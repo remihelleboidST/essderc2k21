@@ -28,7 +28,7 @@
 \author[1]{Jeremy Grebot}
 \author[2]{Isobel Nicholson}
 \author[1]{Antonin Zimmerman}
-\author[2]{Sara Pellegrini}
+\author[2]{Sara Pellegrini}	
 \author[1]{Matthieu Sicre}
 
 \affil[1]{ST Microelectronics, Crolles, France}
@@ -290,6 +290,7 @@ And time interval as :
 The approximation of the solution is noted :
  \[f(x_i, t_k) \simeq f_i^k \: \: \:   \text{    for } i \in \left\lbrace 0, \cdots, N\right\rbrace  \text{ and } k \in \left\lbrace 0, \cdots, M \right\rbrace  \]
 The equation is solved by the mean of the finite difference method, more precisely we use a modified Crank-Nicholson method. The differentiation of the equation reads : 
+\begin{tiny}
 \useshortskip
 \begin{align*}\label{eq:CrankNicolson}
 \frac{f_i^{k+1} - f_i^{k}}{dt} =& \frac{1}{2} \left[ - u_i \frac{f_{i+1}^{k+1} - f_{i-1}^{k+1}}{2h} 
@@ -301,55 +302,59 @@ The equation is solved by the mean of the finite difference method, more precise
 				+ &\frac{1}{2} \left[-f_i^k \frac{u_{i+1} - u_{i-1} }{2h}
 				+ \frac{D_{i+1} - D_{i-1} }{2h} \frac{f_{i+1}^{k} - f_{i-1}^{k}}{2h} \right] \
 \end{align*}
+\end{tiny}
 It is then straightforward that the resulting scheme will be a linear system to solve with a matrix vector product as right hand side member: 
 \[ A F^{k+1} = B F^k\]
 
 
 
 \section{Results and comparisons with experiments}
+In order to validate our model, we compared the simulation results with experimental measurements performed on several variations of the SPAD design. The measurements are always repeated on several SPADs in order to reduce the variability of the results. We first present a comparison of the Breakdown Voltage (BV). The BV is extracted from the simulations considering a threshold PDE of 1e-5, as shown in Figure \ref{fig:BVExtract}. \\
+The Figure \ref{fig:BVCorrel} shows the correlation between simulations and measurements for breakdown voltage. We observe a very good correlation between the simulations and the measurements on all the tested designs.
+
+To compare with experimental data, the breakdown probability has been coupled with optical absorption obtained with Lumerical simulation (not shown) including notably the back end and the micro lenses. For all devices studied here, only the front end is varied  and the integrated optical absorption within the full device is found to be 26\% at 333K. 
+
 
 \begin{figure}[h!]
-\caption{Method for BV extraction}
 \centering
 \includegraphics[scale=0.65]{../pictures/000_McIntyre_Bench_Method.eps}
+\caption{Method for BV extraction}
+\label{fig:BVExtract}
 \end{figure}
 
-\begin{figure}[h]
-\caption{Correlation between simulation and experiment for Breakdown Voltage}
-\centering
-\includegraphics[scale=0.65]{../pictures/000_McIntyre_Bench_GR5_graphs_corel.eps}
-\end{figure}
 
-\begin{figure}[h]
-\caption{s}
+\begin{figure}[h!]
 \centering
 \includegraphics[scale=0.65]{../pictures/000_McIntyre_Bench_GR5_graphs_BV.eps}
+\caption{Correlation between simulation and measurements for PDE at BV + 4V}
+\label{fig:BVCorrel}
 \end{figure}
 
+\begin{figure}[h]
+\centering
+\includegraphics[scale=0.65]{../pictures/000_McIntyre_Bench_GR5_graphs_corel.eps}
+\caption{Correlation between simulation and experiment for Breakdown Voltage}
+\end{figure}
 
-\begin{figure}[hbtp]
-\caption{Comparison of PDE measured and simulated on three architecture variations}
+Figure 9 shows the PDE values obtained by simulations and measurements on three different SPADs. The PDE values are obtained by multiplying the breakdown avalanche probability by an average optical absorption, found to be 26\% for our architecture.
+
+\begin{figure}[h!]
 \centering
 \includegraphics[scale=0.69]{../pictures/000_McIntyre_Bench_GR5_graphs.eps}
+\caption{Comparison of PDE measured and simulated on three architecture variations}
+\end{figure}
+
+\begin{figure}[h!]
+\centering
+\includegraphics[scale=0.45]{../pictures/BrPMaps.png}
+\caption{Maps of breakdown avalanche probabiliity from two design variantions with a larger and a smaller avalanche region}
 \end{figure}
 
 
-\bibliographystyle{apalike}
+
+
+\bibliographystyle{ieeetr}
 \bibliography{../biblio/essderc2k21}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
